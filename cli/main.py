@@ -813,6 +813,15 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
     return save_path / "complete_report.md"
 
 
+def default_report_save_path(config: dict, ticker: str, timestamp: str | None = None) -> Path:
+    """Return the default final-report export path for a run."""
+    report_timestamp = timestamp or datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_dir = config.get("report_save_dir")
+    if base_dir:
+        return Path(base_dir).expanduser() / f"{ticker}_{report_timestamp}"
+    return Path.cwd() / "reports" / f"{ticker}_{report_timestamp}"
+
+
 def display_complete_report(final_state):
     """Display the complete analysis report sequentially (avoids truncation)."""
     console.print()
@@ -1019,7 +1028,7 @@ def format_tool_args(args, max_length=80) -> str:
         return result[:max_length - 3] + "..."
     return result
 
-def run_analysis(checkpoint: bool = False):
+def run_analysis(checkpoint: bool = False, report_save_dir: str | None = None):
     # First get all user selections
     selections = get_user_selections()
 
@@ -1037,6 +1046,8 @@ def run_analysis(checkpoint: bool = False):
     config["anthropic_effort"] = selections.get("anthropic_effort")
     config["output_language"] = selections.get("output_language", "English")
     config["checkpoint_enabled"] = checkpoint
+    if report_save_dir:
+        config["report_save_dir"] = report_save_dir
 
     # Create stats callback handler for tracking LLM/tool calls
     stats_handler = StatsCallbackHandler()
@@ -1294,13 +1305,12 @@ def run_analysis(checkpoint: bool = False):
     # Prompt to save report
     save_choice = typer.prompt("Save report?", default="Y").strip().upper()
     if save_choice in ("Y", "YES", ""):
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        default_path = Path.cwd() / "reports" / f"{selections['ticker']}_{timestamp}"
+        default_path = default_report_save_path(config, selections["ticker"])
         save_path_str = typer.prompt(
             "Save path (press Enter for default)",
             default=str(default_path)
         ).strip()
-        save_path = Path(save_path_str)
+        save_path = Path(save_path_str).expanduser()
         try:
             report_file = save_report_to_disk(final_state, selections["ticker"], save_path)
             console.print(f"\n[green]✓ Report saved to:[/green] {save_path.resolve()}")
@@ -1326,12 +1336,17 @@ def analyze(
         "--clear-checkpoints",
         help="Delete all saved checkpoints before running (force fresh start).",
     ),
+    report_save_dir: str | None = typer.Option(
+        None,
+        "--report-save-dir",
+        help="Directory where final report exports are saved. Defaults to ./reports.",
+    ),
 ):
     if clear_checkpoints:
         from tradingagents.graph.checkpointer import clear_all_checkpoints
         n = clear_all_checkpoints(DEFAULT_CONFIG["data_cache_dir"])
         console.print(f"[yellow]Cleared {n} checkpoint(s).[/yellow]")
-    run_analysis(checkpoint=checkpoint)
+    run_analysis(checkpoint=checkpoint, report_save_dir=report_save_dir)
 
 
 if __name__ == "__main__":
