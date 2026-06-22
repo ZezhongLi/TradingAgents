@@ -175,6 +175,8 @@ python -m cli.main     # alternative: run directly from source
 ```
 You will see a screen where you can select your desired tickers, analysis date, LLM provider, research depth, and more.
 
+Final report exports default to `./reports/<TICKER>_<timestamp>/`. To choose a different base directory, run `tradingagents analyze --report-save-dir /path/to/reports` or set `TRADINGAGENTS_REPORT_SAVE_DIR=/path/to/reports`; the CLI still prompts before saving so you can override the exact destination per run.
+
 ### Markets and tickers
 
 TradingAgents works with any market Yahoo Finance covers, using the exchange-suffixed ticker. Company identity and the alpha benchmark resolve automatically per market.
